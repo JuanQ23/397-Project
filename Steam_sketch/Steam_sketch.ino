@@ -243,7 +243,7 @@ void loop()
   //Home
   if (currentpage == 0)
   {
-    if(pos < 2)
+    if(pos <= low)
     {
       pos = 1;
       if(millis() - timeLapsed > 10000) 
@@ -255,7 +255,7 @@ void loop()
       }
     }
 
-    if(pos >= 2)
+    if(pos > low + 1)
     {
       if(millis() - timeLapsed > 2000) 
       {
