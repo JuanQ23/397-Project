@@ -254,9 +254,9 @@ void store_change(int *arr, int n, int value)
 }
 bool no_change(int* arr)
 {
-  int size = sizeof(arr)/sizeof(int);
-  printf("no_change(): size of array-%d\n", size);
-  for(int i=0; i<size; i++)
+  //int size = sizeof(arr)/sizeof(int);
+
+  for(int i=0; i<4; i++)
   {
     if (arr[i] != arr[i+1]) return false;
   }
@@ -358,7 +358,7 @@ void loop()
       if(p.x > 770 && p.x < 830 && p.y > 760 && p.y < 890)
       {
         int temp_history[10] = {0};
-        while((round(expected_temp) != round(temp)) && ((pos > low) && (pos < high)))
+        while((pos > low) && (pos < high))
         {
           //Animation block
           tft.fillRoundRect(370, 20, 100, 40, 8, GREY);
@@ -371,9 +371,14 @@ void loop()
           delay(500);
           store_change(temp_history, 10, temp);
 
+          for (int j = 0; j < 10; j++)
+          {
+            Serial.print(temp_history[j]);
+            Serial.print(", ");            
+          }
+          Serial.println();
 
-
-          if (temp == expected_temp && no_change(temp_history))
+          if (round(temp) == round(expected_temp) && no_change(temp_history))
           {
             break;
           }
