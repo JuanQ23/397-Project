@@ -233,6 +233,35 @@ void drawHome()
   tft.print("F");
 }
 
+void update_pos(float temp, float expected_temp)
+{
+  if(expected_temp > temp)
+  {
+    pos = pos + 2;
+    myservo.write(pos);
+  }
+  if(expected_temp < temp)
+  {
+    pos = pos - 2;
+    myservo.write(pos);
+  }
+}
+
+void store_change(int *arr, int n, int value)
+{ 
+    memmove(&arr[1], &arr[0], (n-1)*sizeof(int));
+    arr[0] = value;
+}
+bool no_change(int* arr)
+{
+  //int size = sizeof(arr)/sizeof(int);
+
+  for(int i=0; i<4; i++)
+  {
+    if (arr[i] != arr[i+1]) return false;
+  }
+  return true;
+}
 void loop()
 {
   TSPoint p = ts.getPoint(); //Read touchscreen 
@@ -240,10 +269,11 @@ void loop()
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
 
-  //Home
+  // Home
   if (currentpage == 0)
   {
-    if(pos <= low)
+
+    if(pos < 2)
     {
       pos = 1;
       if(millis() - timeLapsed > 10000) 
@@ -255,7 +285,7 @@ void loop()
       }
     }
 
-    if(pos > low + 1)
+    if(pos >= 2)
     {
       if(millis() - timeLapsed > 2000) 
       {
@@ -281,7 +311,7 @@ void loop()
         p.z = 0;
       }
 
-      //Hot
+      // Hot
       if (p.y > 370 && p.y < 470)
       {
         if(p.x > 200 && p.x < 320)
@@ -324,11 +354,11 @@ void loop()
           delay(200);
         }
       }
-
       //Set temp.
       if(p.x > 770 && p.x < 830 && p.y > 760 && p.y < 890)
       {
-        while((round(expected_temp) != round(temp)) && ((pos > low) && (pos < high)))
+        int temp_history[10] = {0};
+        while((pos > low) && (pos < high))
         {
           //Animation block
           tft.fillRoundRect(370, 20, 100, 40, 8, GREY);
@@ -336,19 +366,31 @@ void loop()
           tft.print(char(247));
           tft.print("F");
           //**
-          
-          if(expected_temp > temp)
-          {
-            pos = pos + 2;
-            myservo.write(pos);
-          }
-          if(expected_temp < temp)
-          {
-            pos = pos - 2;
-            myservo.write(pos);
-          }
-          delay(500);
           temp = thermocouple.readFahrenheit();
+          update_pos(temp, expected_temp);
+          delay(500);
+          store_change(temp_history, 10, temp);
+
+          for (int j = 0; j < 10; j++)
+          {
+            Serial.print(temp_history[j]);
+            Serial.print(", ");            
+          }
+          Serial.println();
+
+          if (round(temp) == round(expected_temp) && no_change(temp_history))
+          {
+            break;
+          }
+
+          // store_change(temp);
+          // if curr - previous != 0
+          // {
+          //   continue
+          // }
+
+
+          //update temperature on display.
           tft.fillRoundRect(130, 140, 200, 60, 8, GREY);          
           b.setText(150, 140, 8, BLACK, round(temp));
           tft.print(char(247));
@@ -358,7 +400,7 @@ void loop()
     }
   }
 
-  //Settings
+  // Settings
   if (currentpage == 1)
   {
     if (p.z > MINPRESSURE && p.z < MAXPRESSURE)
@@ -379,12 +421,12 @@ void loop()
         currentpage = 2;
         drawCalibration();
         p.z = 0;
-      }      
+      }
       if (p.x > 270 && p.x < 380 && p.y > 125 && p.y < 460)
       {
         b.buttonAnimation(20, 200, 200, 60, 8, WHITE, CYAN);
         b.setText(60, 225, 2, BLACK, "LED Lights");
-      }         
+      }
     }
   }
 
@@ -448,14 +490,11 @@ void loop()
           if(pos != 0) {
             pos = pos - 1;
           }
-
           myservo.write(pos);
-
           delay(15); 
-
         }
       }
-    }    
+    }
   }
 
   //Manually changing temp.
