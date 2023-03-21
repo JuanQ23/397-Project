@@ -235,30 +235,30 @@ void drawHome()
 
 void update_pos(float temp, float expected_temp)
 {
-  if(expected_temp > temp)
+  if(expected_temp > temp && pos <= high - 2)
   {
     pos = pos + 2;
     myservo.write(pos);
   }
-  if(expected_temp < temp)
+  if(expected_temp < temp && pos >= low + 2)
   {
     pos = pos - 2;
     myservo.write(pos);
   }
 }
 
-void store_change(int *arr, int n, int value)
+void store_change(float *arr, int n, float value)
 { 
-    memmove(&arr[1], &arr[0], (n-1)*sizeof(int));
+    memmove(&arr[1], &arr[0], (n-1)*sizeof(float));
     arr[0] = value;
 }
-bool no_change(int* arr)
+bool no_change(float* arr)
 {
   //int size = sizeof(arr)/sizeof(int);
 
   for(int i=0; i<4; i++)
   {
-    if (arr[i] != arr[i+1]) return false;
+    if (floor(arr[i]) != floor(arr[i+1])) return false;
   }
   return true;
 }
@@ -275,7 +275,7 @@ void loop()
 
     if(pos < 2)
     {
-      pos = 1;
+      pos = low;
       if(millis() - timeLapsed > 10000) 
       {
       tft.fillRoundRect(130, 140, 300, 60, 8, GREY);
@@ -289,7 +289,7 @@ void loop()
     {
       if(millis() - timeLapsed > 2000) 
       {
-      tft.fillRoundRect(130, 140, 200, 60, 8, GREY);
+      tft.fillRoundRect(130, 140, 260, 60, 8, GREY);
       
       temp = thermocouple.readFahrenheit();
 
@@ -316,7 +316,7 @@ void loop()
       {
         if(p.x > 200 && p.x < 320)
         {
-          if(expected_temp <= 100)
+          if(expected_temp <= 150)
           {
             expected_temp = expected_temp + 1;
             //pos = pos + 3;
@@ -338,7 +338,7 @@ void loop()
       {
         if(p.x > 200 && p.x < 320)
         {
-          if(expected_temp >= 50)
+          if(expected_temp >= 40)
           {
             expected_temp = expected_temp - 1;
             //pos = pos - 3;
@@ -357,14 +357,15 @@ void loop()
       //Set temp.
       if(p.x > 770 && p.x < 830 && p.y > 760 && p.y < 890)
       {
-        int temp_history[10] = {0};
-        while((pos > low) && (pos < high))
+        //Animation block
+        tft.fillRoundRect(370, 20, 100, 40, 8, GREY);
+        b.setText(380, 30, 3, BLACK, round(expected_temp));
+        tft.print(char(247));
+        tft.print("F");
+        float temp_history[10] = {0};
+        while(true)
         {
-          //Animation block
-          tft.fillRoundRect(370, 20, 100, 40, 8, GREY);
-          b.setText(380, 30, 3, BLACK, round(expected_temp));
-          tft.print(char(247));
-          tft.print("F");
+          // p = ts.getPoint();
           //**
           temp = thermocouple.readFahrenheit();
           update_pos(temp, expected_temp);
@@ -378,10 +379,18 @@ void loop()
           }
           Serial.println();
 
-          if (round(temp) == round(expected_temp) && no_change(temp_history))
+          if (floor(temp) == floor(expected_temp) && no_change(temp_history))
           {
             break;
           }
+
+          // if cancel.pressed(){
+          //   break
+          // }
+          // if(p.x > 770 && p.x < 830 && p.y > 760 && p.y < 890) 
+          // {
+          //   break;
+          // }
 
           // store_change(temp);
           // if curr - previous != 0
@@ -391,7 +400,7 @@ void loop()
 
 
           //update temperature on display.
-          tft.fillRoundRect(130, 140, 200, 60, 8, GREY);          
+          tft.fillRoundRect(130, 140, 260, 60, 8, GREY);          
           b.setText(150, 140, 8, BLACK, round(temp));
           tft.print(char(247));
           tft.print("F");
@@ -443,8 +452,8 @@ void loop()
         b.buttonAnimation(20, 20, 150, 40, 8, WHITE, BLACK);
         b.setText(60, 30, 3, WHITE, "Back");
 
-        pos = 1;
-        myservo.write(0);
+        pos = low;
+        myservo.write(low);
         currentpage = 1;
         drawSettings();
       }
