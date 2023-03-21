@@ -22,7 +22,7 @@
 //#define TS_MAXX 920
 //#define TS_MAXY 940
 
-// display parameters.
+// display pins.
 #define LCD_CS A3
 #define LCD_CD A2
 #define LCD_WR A1
@@ -46,6 +46,12 @@
 # define MINPRESSURE 10
 # define MAXPRESSURE 1000
 
+//ThermoCouple pins. It the uses SPI protocal.
+int thermoDO = 11; // data out pin (Master In Slave Out -- MISO) 
+int thermoCS = 12; // Chip select pin 
+int thermoCLK = 13; // Serial clock pin 
+
+
 int currentpage = 0; // - Home Screen, 1-settings, 2-calibration
 float temp;
 unsigned long timeLapsed;
@@ -54,10 +60,6 @@ int low;
 int high;
 int pos = 1; 
 
-//Pin numbers for the temp sensor. It the uses SPI protocal.
-int thermoDO = 11; // data out pin (Master In Slave Out -- MISO) 
-int thermoCS = 12; // Chip select pin 
-int thermoCLK = 13; // Serial clock pin 
 
 class buttons
 {
@@ -135,50 +137,67 @@ class buttons
 
     bool pressed(char button[2], TSPoint* p)
     {
+      Serial.print(button == "B1");
+      
       if (p->z > MINPRESSURE && p->z < MAXPRESSURE)
       {
-
+        Serial.print("MIN met");
         if (button == "B1") // B1 = Button 1
         {
+          Serial.print("B1 pressed\n");
           return  p->x > 670 && p->x < 780 && p->y > 125 && p->y < 460;
         }
         else if (button == "B2") // B2 = Button 1
         {
+          Serial.print("B2 pressed\n\r");
+
           return p->x > 470 && p->x < 580 && p->y > 125 && p->y < 460;
         }
         else if (button == "B3") // B3 = Button 3
         {
+          Serial.print("B3 pressed\n\r");
+
           return p->x > 270 && p->x < 380 && p->y > 125 && p->y < 460;
         }
         else if (button == "TL") // Top left corner of screen (settings, go back etc)
         {
+          Serial.print("TL pressed\n\r");
           return p->x > 770 && p->x < 830 && p->y > 120 && p->y < 350;
         }
         else if (button == "ML") // Mid left portion of screen (set minimum currently.)
         {
+          Serial.print("ML Pressed\n\r");
           return p->x > 470 && p->x < 580 && p->y > 125 && p->y < 460;
         }
         else if (button == "MR")  // Mid Right portion of screen (set max currently.)
-        { 
+        {
+          Serial.print("MR Pressed\n\r");
           return p->x > 470 && p->x < 580 && p->y > 560 && p->y < 895;
         }
         else if (button == "LA") // left arrow
         {
+          Serial.print("LA Pressed\n\r");
           return p->y > 370 && p->y < 470 && p->x > 200 && p->x < 320;
         }
         else if (button == "RA") // left arrow
         {
+          Serial.print("RA Pressed\n\r");
           return p->y > 540 && p->y < 640 && p->x > 200 && p->x < 320;
         }
         else if (button == "TR")
         {
+          Serial.print("TR Pressed\n\r");
           return p->x > 770 && p->x < 830 && p->y > 760 && p->y < 890;
         }
       }
+      else{
+        return false;
+      }
+
     }
 };
 
-
+//sensor objects.
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300); //touch screen obj for detecting pressure points.
 TSPoint p = ts.getPoint();
 Adafruit_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET); // tft obj for drawing on the screen.
