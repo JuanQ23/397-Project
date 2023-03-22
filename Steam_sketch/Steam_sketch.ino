@@ -313,42 +313,42 @@ void loop()
   // Home Screen
   if (currentpage == HOME)
   {
-      if (TopLeftBtn.pressed(&p))
-      {
-        TopLeftBtn.Animate();
-        currentpage = SETTINGS;
-        drawSettings();
-      }
+    if (TopLeftBtn.pressed(&p))
+    {
+      TopLeftBtn.Animate();
+      currentpage = SETTINGS;
+      drawSettings();
+    }
 
-      else if (LeftArrowBtn.pressed(&p))
+    //if left pressed, then rotate motor left.
+    else if (LeftArrowBtn.pressed(&p)) 
+    {
+      if (pos != 180)
       {
-        if (pos != 180)
-        {
-          pos = pos + 1;
-        }
-        myservo.write(pos);
-        delay(15);
+        pos = pos + 1;
       }
-
-      else if (RightArrowBtn.pressed(&p))
-      {
-        if (pos != 0)
-        {
-          pos = pos - 1;
-        }
-        myservo.write(pos);
-        delay(15);
-      }
+      myservo.write(pos);
+      delay(15);
+    }
+    // else if right pressed, then rotate motor right.
+    else if (RightArrowBtn.pressed(&p))
+    {
+      if (pos != 0) pos = pos - 1;
+      myservo.write(pos);
+      delay(15);
+    }
   }
   // Settings Screen
   else if (currentpage == SETTINGS)
   {
-    if (homeBtn.pressed(&p))
-      {
-        homeBtn.Animate();
-        currentpage = HOME;
-        drawHome();
-      }
+    // If home pressed, Then draw home screen
+    if (homeBtn.pressed(&p)) 
+    {
+      homeBtn.Animate();
+      currentpage = HOME;
+      drawHome();
+    }
+    // if calibration button pressed, Then draw CALibration screen.
     else if (calibrationBtn.pressed(&p))
     {
       calibrationBtn.Animate();
@@ -356,15 +356,29 @@ void loop()
       drawCalibration();
     }
   }
-  // Calibration Screen
+  // calibration screen.
   else if (currentpage == CAL)
   {
+    //if BACK is pressed, then go back to SETTINGS. 
     if (TopLeftBtn.pressed(&p))
-      {
-        TopLeftBtn.Animate();
-        currentpage = SETTINGS;
-        drawSettings();
-      }
+    {
+      TopLeftBtn.Animate();
+      currentpage = SETTINGS;
+      drawSettings();
+    }
+    //if left pressed, then rotate motor left.
+    else if (LeftArrowBtn.pressed(&p))
+    {
+      if (pos != 180) pos = pos + 1;
+      myservo.write(pos);
+      delay(15);
+    }
+    // if right pressed, then rotate motor right.
+    else if (RightArrowBtn.pressed(&p))
+    {
+      if (pos != 0) pos = pos - 1;
+      myservo.write(pos);
+      delay(15);
+    }
   }
-  
 }
