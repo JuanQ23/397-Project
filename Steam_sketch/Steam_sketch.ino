@@ -4,11 +4,8 @@
 #include "max6675.h"
 #include <Servo.h>
 #include <TimeLib.h>
+#include <EEPROM.h>
 
-#if defined(__SAM3X8E__)
-    #undef __FlashStringHelper::F(string_literal)
-    #define F(string_literal) string_literal
-#endif
 
 //touch screen params
 #define YP A3  // must be an analog pin, use "An" notation!
@@ -51,14 +48,19 @@
 #define SETTINGS 1
 #define CAL 2 //Calibration
 
+// EEPROM addresses variable addresses.
+#define lowAddress 0
+#define highAddress 4
 
+
+//
 int currentpage = 0; // - Home Screen, 1-settings, 2-calibration
-float temp;
+float curr_temp;
 unsigned long timeLapsed;
-float expected_temp;
+int expected_temp;
 int low;
 int high;
-int pos = 0; 
+int motorPos = 90; 
 
 //Pin numbers for the temp sensor. It the uses SPI protocal.
 int thermoDO = 11; // data out pin (Master In Slave Out -- MISO) 
@@ -165,7 +167,7 @@ class buttons
       this->TSPressurePt[2] = ylow;
       this->TSPressurePt[3] = yhigh;
     }
-    bool pressed(TSPoint *p)
+    bool isPressed(TSPoint *p)
     {
         // Serial.println(String(p->x)+","+String(p->y)+","+String(p->z));
         // Serial.println(String(this->TSPressurePt[0])+","+String(this->TSPressurePt[1])+","+String(this->TSPressurePt[2])+","+String(this->TSPressurePt[3]));
@@ -184,8 +186,8 @@ MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO); // temp sensor obj.
 Servo myservo; //servo object for controlling the servo motor.
 
 buttons TopLeftBtn(&tft, 20, 20, 150, 40);
-buttons LeftArrowBtn(&tft, 260, 295, 320, 265, 260, 235);
-buttons RightArrowBtn(&tft, 220, 295, 160, 265, 220, 235);
+buttons LeftArrowBtn(&tft, 220, 295, 160, 265, 220, 235);
+buttons RightArrowBtn(&tft, 260, 295, 320, 265, 260, 235);
 
 buttons homeBtn(&tft, 20, 50, 200, 60);
 buttons calibrationBtn(&tft, 20, 125, 200, 60);
@@ -194,19 +196,15 @@ buttons unknown1(&tft, 260, 50, 200, 60);
 buttons unknown2(&tft, 260, 125, 200, 60);
 buttons unknown3(&tft, 260, 200, 200, 60);
 
-// buttons MidLeftBtn(&tft);
-// buttons MidRightBtn(&tft);
+buttons setMinBtn(&tft, 20, 125, 200, 60);
+buttons setMaxBtn(&tft, 260, 125, 200, 60);
+
+buttons targetTempBtn(&tft, 130, 120, 220, 60);
+buttons current_temp(&tft, 370, 20, 90, 40);
 // buttons TopRightBtn(&tft, 370, 20, "RECTANGLE", 40, 8);
 
-// TopLeftBtn.setSize("Height", "width");
-// TopRightBtn.setSize("Height", "width");
-// LeftArrowBtn.setSize("Height", "Width")
-// RightArrowBtn.setSize("Height", "Width")
-// MidleftBtn.setSize("Height", "Width");
-// MidRightBtn("Height", "Width")
-//testing
-
 void setup(){
+
   //servo init
   myservo.attach(10);  // attaches the servo on pin 9 to the servo object
   myservo.write(90);
@@ -231,6 +229,46 @@ void setup(){
   tft.setTextColor(WHITE);
   //-----------------------
 
+  //loading in settings.
+  low = EEPROM[lowAddress];
+  high = EEPROM[highAddress];
+
+  //calibration screen buttons set up.
+  setMinBtn.customize(WHITE, BLACK, "Set to Min Pos.", 2, WHITE);
+  setMinBtn.setTextPosition(10, 10);
+  setMinBtn.setPressurePts(470, 580, 125, 460);
+
+  setMaxBtn.customize(WHITE, BLACK, "Set to Max Pos.", 2, WHITE);
+  setMaxBtn.setTextPosition(10, 10);
+  setMaxBtn.setPressurePts(470, 580, 560, 895);
+
+  //settings screen buttons set up.
+  homeBtn.customize(WHITE, CYAN, "Home", 3, BLACK);
+  homeBtn.setTextPosition(60, 20);
+  homeBtn.setPressurePts(670, 780, 125, 460);
+  
+  calibrationBtn.customize(WHITE, CYAN, "Calibration", 2, BLACK);
+  calibrationBtn.setTextPosition(35, 25);
+  calibrationBtn.setPressurePts(470, 580, 125, 460);
+  
+  LEDBtn.customize(WHITE, CYAN, "LED Lights", 2, BLACK);
+  LEDBtn.setTextPosition(40, 25);
+  //calibrationBtn.setPressurePts(XXXXXXXXX);
+  
+  //home screen buttons set up.
+  TopLeftBtn.setPressurePts(770, 830, 120, 350);
+  LeftArrowBtn.customize(BLUE, BLUE, "", 0, BLUE);
+  LeftArrowBtn.setPressurePts(200, 320, 370, 470);
+  RightArrowBtn.customize(RED, RED, "", 0, RED);
+  RightArrowBtn.setPressurePts(200, 320, 540, 640);
+
+  //temperature reading
+  curr_temp = thermocouple.readFahrenheit();
+  expected_temp = curr_temp;
+
+  targetTempBtn.customize(BLACK, GREY, String(expected_temp), 6, BLACK);
+  targetTempBtn.setPressurePts(500, 610, 325, 690);
+  current_temp.customize(GREY, GREY, String(curr_temp), 3, BLACK);
   // Draw home screen
   drawHome();
 }
@@ -244,20 +282,18 @@ void drawHome()
   // customizing Top left button and drawing it on to the screen. 
   TopLeftBtn.customize(WHITE, GREY, "Settings", 2, BLACK);
   TopLeftBtn.setTextPosition(25, 15);
-  TopLeftBtn.setPressurePts(770, 830, 120, 350);
-  TopLeftBtn.Draw();
   
-  // customizing Left arrow button and drawing it onto the screen.
-  LeftArrowBtn.customize(BLUE, BLUE, "", 0, BLUE);
-  LeftArrowBtn.setPressurePts(200, 320, 370, 470);
+  TopLeftBtn.Draw();
   LeftArrowBtn.Draw();
-
-  // customizing Right arrow button and drawing it on the screen.
-  RightArrowBtn.customize(RED, RED, "", 0, RED);
-  RightArrowBtn.setPressurePts(200, 320, 540, 640);
   RightArrowBtn.Draw();
 
-  // TopRightBtn.customize(GREY, GREY, "", 2);
+  //draw expexted temperature in the middle
+  targetTempBtn.Draw();
+  current_temp.Draw();
+  //draw current temperature on the top right of the screen.
+  
+
+
 }
 
 void drawSettings()
@@ -266,22 +302,9 @@ void drawSettings()
   tft.fillScreen(BLACK);
   tft.drawRoundRect(0, 0, 479, 319, 8, WHITE); // Page border
   
-  //creating and drawing home button
-  homeBtn.customize(WHITE, CYAN, "Home", 3, BLACK);
-  homeBtn.setTextPosition(60, 20);
-  homeBtn.setPressurePts(670, 780, 125, 460);
+  //draw settings.
   homeBtn.Draw();
-
-  //Calibration button creation
-  calibrationBtn.customize(WHITE, CYAN, "Calibration", 2, BLACK);
-  calibrationBtn.setTextPosition(35, 25);
-  calibrationBtn.setPressurePts(470, 580, 125, 460);
   calibrationBtn.Draw();
-
-  //LED button creation.
-  LEDBtn.customize(WHITE, CYAN, "LED Lights", 2, BLACK);
-  LEDBtn.setTextPosition(40, 25);
-  //calibrationBtn.setPressurePts(XXXXXXXXX);
   LEDBtn.Draw();
 }
 
@@ -295,12 +318,45 @@ void drawCalibration()
   TopLeftBtn.customize(WHITE, GREY, "Back", 3, BLACK);
   TopLeftBtn.setTextPosition(40, 10);
 
-  //drawing everything display.
+  //drawing everything on the display.
   TopLeftBtn.Draw();
   LeftArrowBtn.Draw();
-  RightArrowBtn.Draw();            
-
+  RightArrowBtn.Draw();       
+  setMinBtn.Draw();
+  setMaxBtn.Draw();     
 }
+
+void update_pos(float curr_temp, int expected_temp)
+{
+  if (expected_temp > curr_temp && motorPos <= high - 2)
+  {
+      motorPos += 2;
+      myservo.write(motorPos);
+  }
+  if (expected_temp < curr_temp && motorPos >= low + 2)
+  {
+      motorPos -= 2;
+      myservo.write(motorPos);
+  }
+}
+
+void store_change(float *arr, int n, float value)
+{
+  memmove(&arr[1], &arr[0], (n - 1) * sizeof(float));
+  arr[0] = value;
+}
+
+bool no_change(float *arr)
+{
+  // int size = sizeof(arr)/sizeof(int);
+  for (int i = 0; i < 4; i++)
+  {
+      if (abs(arr[i] - arr[i+1]) > 3)
+        return false;
+  }
+  return true;
+}
+
 void loop()
 {
   TSPoint p = ts.getPoint();
@@ -308,77 +364,119 @@ void loop()
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
 
-  //Serial.println(TopLeftBtn.pressed(&p));
+  //Serial.println(TopLeftBtn.isPressed(&p));
   
   // Home Screen
   if (currentpage == HOME)
   {
-    if (TopLeftBtn.pressed(&p))
+    if (millis() - timeLapsed > 2000)
+    {
+      current_temp.text = thermocouple.readFahrenheit();
+      current_temp.Draw();
+      timeLapsed = millis();
+    }
+
+    else if (TopLeftBtn.isPressed(&p))
     {
       TopLeftBtn.Animate();
       currentpage = SETTINGS;
       drawSettings();
     }
-
-    //if left pressed, then rotate motor left.
-    else if (LeftArrowBtn.pressed(&p)) 
+    else if (targetTempBtn.isPressed(&p))
     {
-      if (pos != 180)
+      targetTempBtn.Animate();
+      float temp_history[10] = {0};
+      while(true)
       {
-        pos = pos + 1;
+        curr_temp = thermocouple.readFahrenheit();
+        update_pos(curr_temp, expected_temp);
+        delay(500);
+        store_change(temp_history, 10, curr_temp);
+
+        for (int j = 0; j < 10; j++)
+        {
+          Serial.print(temp_history[j]);
+          Serial.print(", ");            
+        }
+        Serial.println();
+
+        if (floor(curr_temp) == floor(expected_temp) && no_change(temp_history)) break;
+
+        current_temp.text = curr_temp;
+        current_temp.Draw();
       }
-      myservo.write(pos);
-      delay(15);
     }
-    // else if right pressed, then rotate motor right.
-    else if (RightArrowBtn.pressed(&p))
+    // else if left isPressed, then decrease expected temp.
+    else if (LeftArrowBtn.isPressed(&p))
     {
-      if (pos != 0) pos = pos - 1;
-      myservo.write(pos);
-      delay(15);
+      expected_temp = expected_temp - 1;
+      targetTempBtn.text = expected_temp;
+      targetTempBtn.Draw();
+    }
+    // else if right isPressed, then increase expected temp.
+    else if (RightArrowBtn.isPressed(&p))
+    {
+      expected_temp = expected_temp + 1;
+      targetTempBtn.text = expected_temp;
+      targetTempBtn.Draw();
     }
   }
   // Settings Screen
   else if (currentpage == SETTINGS)
   {
-    // If home pressed, Then draw home screen
-    if (homeBtn.pressed(&p)) 
+    // If home isPressed, Then draw home screen
+    if (homeBtn.isPressed(&p)) 
     {
       homeBtn.Animate();
       currentpage = HOME;
       drawHome();
     }
-    // if calibration button pressed, Then draw CALibration screen.
-    else if (calibrationBtn.pressed(&p))
+    // if calibration button isPressed, Then draw CALibration screen.
+    else if (calibrationBtn.isPressed(&p))
     {
       calibrationBtn.Animate();
       currentpage = CAL;
+      motorPos = 90; // resets motor position to half-way point
       drawCalibration();
     }
   }
-  // calibration screen.
+  // Calibration screen.
   else if (currentpage == CAL)
   {
-    //if BACK is pressed, then go back to SETTINGS. 
-    if (TopLeftBtn.pressed(&p))
+    //if BACK is isPressed, then go back to SETTINGS. 
+    if (TopLeftBtn.isPressed(&p))
     {
       TopLeftBtn.Animate();
+      motorPos = low;
+      myservo.write(motorPos);
       currentpage = SETTINGS;
       drawSettings();
     }
-    //if left pressed, then rotate motor left.
-    else if (LeftArrowBtn.pressed(&p))
+    //if left isPressed, then rotate motor left.
+    else if (LeftArrowBtn.isPressed(&p) && motorPos != 180)
     {
-      if (pos != 180) pos = pos + 1;
-      myservo.write(pos);
+      motorPos = motorPos + 1;
+      myservo.write(motorPos);
       delay(15);
     }
-    // if right pressed, then rotate motor right.
-    else if (RightArrowBtn.pressed(&p))
+    // if right isPressed, then rotate motor right.
+    else if (RightArrowBtn.isPressed(&p) && motorPos != 0)
     {
-      if (pos != 0) pos = pos - 1;
-      myservo.write(pos);
+      motorPos = motorPos - 1;
+      myservo.write(motorPos);
       delay(15);
+    }
+    else if(setMinBtn.isPressed(&p))
+    {
+      setMinBtn.Animate();
+      low = motorPos;
+      EEPROM[lowAddress] = low;
+    }
+    else if (setMaxBtn.isPressed(&p))
+    {
+      setMaxBtn.Animate();
+      high = motorPos;
+      EEPROM[highAddress] = high;
     }
   }
 }
