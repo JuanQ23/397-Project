@@ -220,7 +220,6 @@ void setup(){
 
   //servo init
   myservo.attach(9);  // attaches the servo on pin 9 to the servo object
-  myservo.write(90);
 
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
@@ -249,6 +248,7 @@ void setup(){
   //loading in settings.
   low = EEPROM[lowAddress];
   high = EEPROM[highAddress];
+  myservo.write(low);
 
   //calibration screen buttons set up.
   setMinBtn.customize(WHITE, BLACK, "Set to Min Pos.", 2, WHITE);
@@ -454,18 +454,19 @@ void loop()
       else if (expected_temp <= 87) motorPos = 102;
       else if (expected_temp <= 120) motorPos = 95;
       targetTempBtn.Animate();
-      float temp_history[10] = {0};
+      float temp_history[8] = {0};
       while(true)
       {
-        curr_temp = thermocouple.readFahrenheit();
-        delay(250);
+        curr_temp = thermocouple.readFahrenheit(); 
+        store_change(temp_history, 8, curr_temp);
 
-        if (millis() - timeLapsed > 10000)
+        // if two seconds have passed and there is no changed in temperature, then update the position.
+        if(millis() - timeLapsed > 2000 && no_change(temp_history))
         {
           update_pos(curr_temp, expected_temp);
-          store_change(temp_history, 10, curr_temp);
           timeLapsed = millis();
-        }   
+        }
+
 
         // for (int j = 0; j < 10; j++)
         // {
@@ -474,12 +475,15 @@ void loop()
         // }
         // Serial.println();
 
-        if (floor(curr_temp) == floor(expected_temp) && (temp_history)) break;
+        if (floor(curr_temp) == floor(expected_temp) && no_change(temp_history)) 
+          break;
 
         current_temp.text = curr_temp;
         current_temp.Draw();
+        delay(250); // wait for the temp sensor.
       }
     }
+
     // else if left isPressed, then decrease expected temp.
     else if (LeftArrowBtn.isPressed(&p))
     {
