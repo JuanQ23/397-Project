@@ -3,21 +3,16 @@
 #include <TouchScreen.h>
 #include "max6675.h"
 #include <Servo.h>
-#include <TimeLib.h>
+//#include <TimeLib.h>
 #include <EEPROM.h>
+#include <Adafruit_NeoPixel.h>
 
 
 //touch screen params
 #define YP A3  // must be an analog pin, use "An" notation!
 #define XM A2  // must be an analog pin, use "An" notation!
-#define YM 9   // can be a digital pin
-#define XP 8   // can be a digital pin
-
-// touchs parms, NOT USED
-//#define TS_MINX 150
-//#define TS_MINY 120
-//#define TS_MAXX 920
-//#define TS_MAXY 940
+#define YM 23   // can be a digital pin
+#define XP 22   // can be a digital pin
 
 // display parameters.
 #define LCD_CS A3
@@ -26,27 +21,33 @@
 #define LCD_RD A0
 #define LCD_RESET A4 // optional
 
+#define LED_PIN 10
+#define LED_COUNT 30
+
 // Assign human-readable names to some common 16-bit color values:
 #define	BLACK   0x0000
 #define	BLUE    0x001F
 #define	RED     0xF800
-#define	GREEN   0x07E0
+#define	GREEN   0x03E0
 #define CYAN    0x07FF
 #define MAGENTA 0xF81F
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
-#define PURPLE  0x20F0
+#define PURPLE  0x780F 
 #define GREY    0xC618
 #define DARKGREY 0x6B0C
+#define ORANGE  0xFD20
+#define PINK    0xF81F
 
 //Pressure range for the touch screen. 
-# define MINPRESSURE 10
-# define MAXPRESSURE 1000
+#define MINPRESSURE 10
+#define MAXPRESSURE 1000
 
 //defining pages.
 #define HOME 0
 #define SETTINGS 1
 #define CAL 2 //Calibration
+#define LED 3
 
 // EEPROM addresses variable addresses.
 #define lowAddress 0
@@ -61,11 +62,12 @@ int expected_temp;
 int low;
 int high;
 int motorPos = 90; 
+int k;
 
 //Pin numbers for the temp sensor. It the uses SPI protocal.
-int thermoDO = 11; // data out pin (Master In Slave Out -- MISO) 
-int thermoCS = 12; // Chip select pin 
-int thermoCLK = 13; // Serial clock pin 
+int thermoDO = 50; // data out pin (Master In Slave Out -- MISO) 
+int thermoCS = 53; // Chip select pin 
+int thermoCLK = 52; // Serial clock pin 
 
 class buttons
 {
@@ -184,6 +186,7 @@ TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300); //touch screen obj for detect
 Adafruit_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET); // tft obj for drawing on the screen.
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO); // temp sensor obj.
 Servo myservo; //servo object for controlling the servo motor.
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 buttons TopLeftBtn(&tft, 20, 20, 150, 40);
 buttons LeftArrowBtn(&tft, 220, 295, 160, 265, 220, 235);
@@ -199,6 +202,16 @@ buttons unknown3(&tft, 260, 200, 200, 60);
 buttons setMinBtn(&tft, 20, 125, 200, 60);
 buttons setMaxBtn(&tft, 260, 125, 200, 60);
 
+buttons color1(&tft, 210, 80, 80, 60);
+buttons color2(&tft, 290, 80, 80, 60);
+buttons color3(&tft, 370, 80, 80, 60);
+buttons color4(&tft, 210, 140, 80, 60);
+buttons color5(&tft, 290, 140, 80, 60);
+buttons color6(&tft, 370, 140, 80, 60);
+buttons color7(&tft, 210, 200, 80, 60);
+buttons color8(&tft, 290, 200, 80, 60);
+buttons color9(&tft, 370, 200, 80, 60);
+
 buttons targetTempBtn(&tft, 130, 120, 220, 60);
 buttons current_temp(&tft, 370, 20, 90, 40);
 // buttons TopRightBtn(&tft, 370, 20, "RECTANGLE", 40, 8);
@@ -206,8 +219,12 @@ buttons current_temp(&tft, 370, 20, 90, 40);
 void setup(){
 
   //servo init
-  myservo.attach(10);  // attaches the servo on pin 9 to the servo object
+  myservo.attach(9);  // attaches the servo on pin 9 to the servo object
   myservo.write(90);
+
+  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip.show();            // Turn OFF all pixels ASAP
+  strip.setBrightness(20); // Set BRIGHTNESS to about 1/5 (max = 255)
 
   //TFT setup--------------------
   tft.reset();
@@ -253,6 +270,7 @@ void setup(){
   
   LEDBtn.customize(WHITE, CYAN, "LED Lights", 2, BLACK);
   LEDBtn.setTextPosition(40, 25);
+  LEDBtn.setPressurePts(270, 380, 125, 460);
   //calibrationBtn.setPressurePts(XXXXXXXXX);
   
   //home screen buttons set up.
@@ -261,6 +279,26 @@ void setup(){
   LeftArrowBtn.setPressurePts(200, 320, 370, 470);
   RightArrowBtn.customize(RED, RED, "", 0, RED);
   RightArrowBtn.setPressurePts(200, 320, 540, 640);
+
+  //led screen buttons set up.
+  color1.customize(RED, RED, "", 2, BLACK);
+  color1.setPressurePts(570, 670, 450, 560);
+  color2.customize(BLUE, BLUE, "", 2, BLACK);
+  color2.setPressurePts(570, 670, 600, 710);
+  color3.customize(GREEN, GREEN, "", 2, BLACK);
+  color3.setPressurePts(570, 670, 750, 860);
+  color4.customize(YELLOW, YELLOW, "", 2, BLACK);
+  color4.setPressurePts(430, 530, 450, 560);
+  color5.customize(ORANGE, ORANGE, "", 2, BLACK);
+  color5.setPressurePts(430, 530, 600, 710);
+  color6.customize(PINK, PINK, "", 2, BLACK);
+  color6.setPressurePts(430, 530, 750, 860);
+  color7.customize(PURPLE, PURPLE, "", 2, BLACK);
+  color7.setPressurePts(280, 370, 450, 560);
+  color8.customize(WHITE, WHITE, "", 2, BLACK);
+  color8.setPressurePts(280, 370, 600, 710);
+  color9.customize(GREY, GREY, "", 2, BLACK);
+  color9.setPressurePts(280, 370, 750, 860);
 
   //temperature reading
   curr_temp = thermocouple.readFahrenheit();
@@ -291,8 +329,6 @@ void drawHome()
   targetTempBtn.Draw();
   current_temp.Draw();
   //draw current temperature on the top right of the screen.
-  
-
 
 }
 
@@ -300,7 +336,7 @@ void drawSettings()
 {
   //Drawing home screen background
   tft.fillScreen(BLACK);
-  tft.drawRoundRect(0, 0, 479, 319, 8, WHITE); // Page border
+  tft.drawRoundRect(0, 0, 479, 319, 8, WHITE);
   
   //draw settings.
   homeBtn.Draw();
@@ -323,20 +359,42 @@ void drawCalibration()
   LeftArrowBtn.Draw();
   RightArrowBtn.Draw();       
   setMinBtn.Draw();
-  setMaxBtn.Draw();     
+  setMaxBtn.Draw();    
+}
+
+void drawLEDMenu()
+{
+  tft.fillScreen(BLACK);                 
+  tft.drawRoundRect(0, 0, 479, 319, 8, WHITE);
+
+  TopLeftBtn.customize(WHITE, BLACK, "Back", 3, WHITE);
+  TopLeftBtn.setTextPosition(40, 10);
+  TopLeftBtn.Draw();
+
+  //drawing color buttons.
+  color1.Draw();
+  color2.Draw();
+  color3.Draw();
+  color4.Draw();
+  color5.Draw();
+  color6.Draw();
+  color7.Draw();
+  color8.Draw();
+  color9.Draw();
+  
 }
 
 void update_pos(float curr_temp, int expected_temp)
 {
-  if (expected_temp > curr_temp && motorPos <= high - 2)
+  if (expected_temp > curr_temp && motorPos >= high + 2)
   {
-      motorPos += 2;
-      myservo.write(motorPos);
+    motorPos -= 2; // turns the motor counter clockwise, to hott.
+    myservo.write(motorPos);
   }
-  if (expected_temp < curr_temp && motorPos >= low + 2)
+  if (expected_temp < curr_temp && motorPos <= low - 2)
   {
-      motorPos -= 2;
-      myservo.write(motorPos);
+    motorPos += 2; // turns the motor counter clockwise, to .
+    myservo.write(motorPos);
   }
 }
 
@@ -357,6 +415,12 @@ bool no_change(float *arr)
   return true;
 }
 
+void rainbow(int wait) {
+  strip.rainbow(0);
+  strip.show(); // Update strip with new contents
+  delay(wait);  // Pause for a moment
+}
+
 void loop()
 {
   TSPoint p = ts.getPoint();
@@ -369,6 +433,8 @@ void loop()
   // Home Screen
   if (currentpage == HOME)
   {
+    // Serial.println("low point: " + String(low));
+    // Serial.println("High :" + String(high));
     if (millis() - timeLapsed > 2000)
     {
       current_temp.text = thermocouple.readFahrenheit();
@@ -384,23 +450,31 @@ void loop()
     }
     else if (targetTempBtn.isPressed(&p))
     {
+      if (expected_temp <= 79.2) motorPos = 180;
+      else if (expected_temp <= 87) motorPos = 102;
+      else if (expected_temp <= 120) motorPos = 95;
       targetTempBtn.Animate();
       float temp_history[10] = {0};
       while(true)
       {
         curr_temp = thermocouple.readFahrenheit();
-        update_pos(curr_temp, expected_temp);
-        delay(500);
-        store_change(temp_history, 10, curr_temp);
+        delay(250);
 
-        for (int j = 0; j < 10; j++)
+        if (millis() - timeLapsed > 10000)
         {
-          Serial.print(temp_history[j]);
-          Serial.print(", ");            
-        }
-        Serial.println();
+          update_pos(curr_temp, expected_temp);
+          store_change(temp_history, 10, curr_temp);
+          timeLapsed = millis();
+        }   
 
-        if (floor(curr_temp) == floor(expected_temp) && no_change(temp_history)) break;
+        // for (int j = 0; j < 10; j++)
+        // {
+        //   Serial.print(temp_history[j]);
+        //   Serial.print(", ");            
+        // }
+        // Serial.println();
+
+        if (floor(curr_temp) == floor(expected_temp) && (temp_history)) break;
 
         current_temp.text = curr_temp;
         current_temp.Draw();
@@ -436,14 +510,23 @@ void loop()
     {
       calibrationBtn.Animate();
       currentpage = CAL;
-      motorPos = 90; // resets motor position to half-way point
+      // motorPos = 90; // resets motor position to half-way point
       drawCalibration();
+    }
+    else if (LEDBtn.isPressed(&p))
+    {
+      LEDBtn.Animate();
+      currentpage = LED;
+      drawLEDMenu();
     }
   }
   // Calibration screen.
   else if (currentpage == CAL)
   {
-    //if BACK is isPressed, then go back to SETTINGS. 
+  // Serial.println(motorPos);
+  // Serial.println(thermocouple.readFahrenheit());
+  // delay(250);
+      //if BACK is isPressed, then go back to SETTINGS. 
     if (TopLeftBtn.isPressed(&p))
     {
       TopLeftBtn.Animate();
@@ -479,4 +562,87 @@ void loop()
       EEPROM[highAddress] = high;
     }
   }
+  // LED screen.
+  else if (currentpage == LED)
+  {
+    if (TopLeftBtn.isPressed(&p))
+    {
+      TopLeftBtn.Animate();
+      currentpage = SETTINGS;
+      drawSettings();
+    }
+    else if(color1.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        strip.setPixelColor(k, 255, 0, 0);
+        strip.show();
+      }      
+    }
+    else if(color2.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        strip.setPixelColor(k, 0, 0, 255);
+        strip.show();
+      }
+    }
+    else if(color3.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        strip.setPixelColor(k, 0, 255, 0);
+        strip.show();
+      }
+    }
+    else if(color4.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        strip.setPixelColor(k, 255, 255, 0);
+        strip.show();
+      }
+    }
+    else if(color5.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        strip.setPixelColor(k, 139, 64, 0);
+        strip.show();
+      }
+    }
+    else if(color6.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        strip.setPixelColor(k, 255, 0, 255);
+        strip.show();
+      }
+    }
+    else if(color7.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        strip.setPixelColor(k, 75, 0, 130);
+        strip.show();
+      }
+    }
+    else if(color8.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        strip.setPixelColor(k, 255, 255, 255);
+        strip.show();
+      }
+    }
+    else if(color9.isPressed(&p))
+    {
+      for(k = 0; k < LED_COUNT; k++)
+      {
+        rainbow(10);
+        strip.show();
+      }
+    }
+  }
+
 }
