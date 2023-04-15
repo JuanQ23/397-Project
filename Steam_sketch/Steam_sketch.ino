@@ -69,6 +69,9 @@ int thermoDO = 50; // data out pin (Master In Slave Out -- MISO)
 int thermoCS = 53; // Chip select pin 
 int thermoCLK = 52; // Serial clock pin 
 
+//flags
+bool stopFlag = false;
+
 class buttons
 {
   private:
@@ -217,53 +220,56 @@ buttons current_temp(&tft, 370, 20, 90, 40);
 // buttons TopRightBtn(&tft, 370, 20, "RECTANGLE", 40, 8);
 
 void setup(){
+  // ISR set up.
+  pinMode(2, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(2), emergencyStop, FALLING);
+
+
+  //loading in settings from EEPROM
+  low = EEPROM[lowAddress];
+  high = EEPROM[highAddress];
+  myservo.write(low);
 
   //servo init
   myservo.attach(9);  // attaches the servo on pin 9 to the servo object
 
+  //led strip init.
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
   strip.setBrightness(20); // Set BRIGHTNESS to about 1/5 (max = 255)
 
-  //TFT setup--------------------
+  //TFT init--------------------
   tft.reset();
   tft.begin(tft.readID());
   Serial.println();
   
-  //console log for TFT
+  //console log for TFT.
   Serial.begin(9600);
   Serial.print("reading id...0x");
   delay(500);
   Serial.println(tft.readID(), HEX);
   
-  // more TFT stuff
   tft.fillScreen(BLACK);
   tft.setRotation(1); //set to horizontal display mode 
-  
-  // set text size and color 
+
   tft.setTextSize(3);
   tft.setTextColor(WHITE);
-  //-----------------------
-
-  //loading in settings.
-  low = EEPROM[lowAddress];
-  high = EEPROM[highAddress];
-  myservo.write(low);
+  //----------------------------------
 
   //calibration screen buttons set up.
   setMinBtn.customize(WHITE, BLACK, "Set to Min Pos.", 2, WHITE);
   setMinBtn.setTextPosition(10, 10);
   setMinBtn.setPressurePts(470, 580, 125, 460);
-
   setMaxBtn.customize(WHITE, BLACK, "Set to Max Pos.", 2, WHITE);
   setMaxBtn.setTextPosition(10, 10);
   setMaxBtn.setPressurePts(470, 580, 560, 895);
-
-  //settings screen buttons set up.
+  
+  //settings screen buttons set up
   homeBtn.customize(WHITE, CYAN, "Home", 3, BLACK);
   homeBtn.setTextPosition(60, 20);
   homeBtn.setPressurePts(670, 780, 125, 460);
   
+  //calibration button setup.
   calibrationBtn.customize(WHITE, CYAN, "Calibration", 2, BLACK);
   calibrationBtn.setTextPosition(35, 25);
   calibrationBtn.setPressurePts(470, 580, 125, 460);
@@ -271,8 +277,7 @@ void setup(){
   LEDBtn.customize(WHITE, CYAN, "LED Lights", 2, BLACK);
   LEDBtn.setTextPosition(40, 25);
   LEDBtn.setPressurePts(270, 380, 125, 460);
-  //calibrationBtn.setPressurePts(XXXXXXXXX);
-  
+
   //home screen buttons set up.
   TopLeftBtn.setPressurePts(770, 830, 120, 350);
   LeftArrowBtn.customize(BLUE, BLUE, "", 0, BLUE);
@@ -300,14 +305,17 @@ void setup(){
   color9.customize(GREY, GREY, "", 2, BLACK);
   color9.setPressurePts(280, 370, 750, 860);
 
-  //temperature reading
+  //initial temperature reading.
   curr_temp = thermocouple.readFahrenheit();
   expected_temp = curr_temp;
 
+  //Target button set up.
   targetTempBtn.customize(BLACK, GREY, String(expected_temp), 6, BLACK);
   targetTempBtn.setPressurePts(500, 610, 325, 690);
+
+  //current temp text on screen. 
   current_temp.customize(GREY, GREY, String(curr_temp), 3, BLACK);
-  // Draw home screen
+
   drawHome();
 }
 
@@ -403,13 +411,23 @@ void store_change(float *arr, int n, float value)
   memmove(&arr[1], &arr[0], (n - 1) * sizeof(float));
   arr[0] = value;
 }
+bool withinThreshold(float *arr)
+{
+  // int size = sizeof(arr)/sizeof(int);
+  for (int i = 0; i < 7; i++)
+  {
+      if (abs(arr[i] - arr[i+1]) > 5)
+        return false;
+  }
+  return true;
 
+}
 bool no_change(float *arr)
 {
   // int size = sizeof(arr)/sizeof(int);
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < 7; i++)
   {
-      if (abs(arr[i] - arr[i+1]) > 3)
+      if (abs(arr[i] - arr[i+1]) > .5)
         return false;
   }
   return true;
@@ -455,27 +473,30 @@ void loop()
       else if (expected_temp <= 120) motorPos = 95;
       targetTempBtn.Animate();
       float temp_history[8] = {0};
-      while(true)
+      stopFlag = false;
+      while(!stopFlag)
       {
+        //store  temperature samples in a size 8 array.
         curr_temp = thermocouple.readFahrenheit(); 
         store_change(temp_history, 8, curr_temp);
 
-        // if two seconds have passed and there is no changed in temperature, then update the position.
-        if(millis() - timeLapsed > 2000 && no_change(temp_history))
+        // after 2 seconds, i.e we have 8 temperature samples, IF the water temp stablized
+        // THEN update the position.
+        if(no_change(temp_history) && !withinThreshold(temp_history))
         {
-          update_pos(curr_temp, expected_temp);
+
+          update_pos(curr_temp, expected_temp); delay(3000);
+          curr_temp = thermocouple.readFahrenheit(); 
+          store_change(temp_history, 8, curr_temp);
+
+          while(!no_change(temp_history) && !stopFlag){
+            curr_temp = thermocouple.readFahrenheit(); 
+            store_change(temp_history, 8, curr_temp);
+            delay(250);
+          }
           timeLapsed = millis();
         }
-
-
-        // for (int j = 0; j < 10; j++)
-        // {
-        //   Serial.print(temp_history[j]);
-        //   Serial.print(", ");            
-        // }
-        // Serial.println();
-
-        if (floor(curr_temp) == floor(expected_temp) && no_change(temp_history)) 
+        else if(withinThreshold(temp_history) && no_change(temp_history))
           break;
 
         current_temp.text = curr_temp;
@@ -648,5 +669,9 @@ void loop()
       }
     }
   }
-
 }
+
+void emergencyStop(){
+    stopFlag = true;
+    myservo.write(low);
+  }
