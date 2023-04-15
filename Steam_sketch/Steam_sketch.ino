@@ -230,6 +230,7 @@ void setup(){
   high = EEPROM[highAddress];
   myservo.write(low);
 
+
   //servo init
   myservo.attach(9);  // attaches the servo on pin 9 to the servo object
 
@@ -242,9 +243,10 @@ void setup(){
   tft.reset();
   tft.begin(tft.readID());
   Serial.println();
-  
+
   //console log for TFT.
   Serial.begin(9600);
+
   Serial.print("reading id...0x");
   delay(500);
   Serial.println(tft.readID(), HEX);
@@ -319,6 +321,18 @@ void setup(){
   drawHome();
 }
 
+void monitor(float temp, float angle, int exp_temp)
+{
+  Serial.print("Currtemp:");
+  Serial.print(temp);
+  Serial.print(",");
+  Serial.print("angle:");
+  Serial.print(angle);
+  Serial.print(",");
+  Serial.print("expected:");
+  Serial.println(exp_temp);
+
+}
 void drawHome()
 {
   // Drawing home screen background
@@ -411,21 +425,16 @@ void store_change(float *arr, int n, float value)
   memmove(&arr[1], &arr[0], (n - 1) * sizeof(float));
   arr[0] = value;
 }
-bool withinThreshold(float *arr)
+bool withinThreshold(float curr, int exp)
 {
   // int size = sizeof(arr)/sizeof(int);
-  for (int i = 0; i < 7; i++)
-  {
-      if (abs(arr[i] - arr[i+1]) > 5)
-        return false;
-  }
-  return true;
+  return abs(exp - curr) <= 3;
 
 }
 bool no_change(float *arr)
 {
   // int size = sizeof(arr)/sizeof(int);
-  for (int i = 0; i < 7; i++)
+  for (int i = 0; i < 6; i++)
   {
       if (abs(arr[i] - arr[i+1]) > .5)
         return false;
@@ -468,7 +477,7 @@ void loop()
     }
     else if (targetTempBtn.isPressed(&p))
     {
-      if (expected_temp <= 79.2) motorPos = 180;
+      if (expected_temp <= 79.2) motorPos = 172;
       else if (expected_temp <= 87) motorPos = 102;
       else if (expected_temp <= 120) motorPos = 95;
       targetTempBtn.Animate();
@@ -476,27 +485,32 @@ void loop()
       stopFlag = false;
       while(!stopFlag)
       {
+        
         //store  temperature samples in a size 8 array.
         curr_temp = thermocouple.readFahrenheit(); 
         store_change(temp_history, 8, curr_temp);
+        monitor(curr_temp, motorPos, expected_temp);
 
         // after 2 seconds, i.e we have 8 temperature samples, IF the water temp stablized
         // THEN update the position.
-        if(no_change(temp_history) && !withinThreshold(temp_history))
+        if(no_change(temp_history) && !withinThreshold(curr_temp, expected_temp))
         {
-
-          update_pos(curr_temp, expected_temp); delay(3000);
+          
+          //updating the position waiting 3 seconds and storing the temperature change.
+          update_pos(curr_temp, expected_temp);
           curr_temp = thermocouple.readFahrenheit(); 
           store_change(temp_history, 8, curr_temp);
 
+          // while the temperature changes, continue to listen.
           while(!no_change(temp_history) && !stopFlag){
+            monitor(curr_temp, motorPos, expected_temp);
             curr_temp = thermocouple.readFahrenheit(); 
             store_change(temp_history, 8, curr_temp);
             delay(250);
           }
           timeLapsed = millis();
         }
-        else if(withinThreshold(temp_history) && no_change(temp_history))
+        else if(withinThreshold(curr_temp, expected_temp) && no_change(temp_history))
           break;
 
         current_temp.text = curr_temp;
