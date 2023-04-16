@@ -408,14 +408,20 @@ void drawLEDMenu()
 
 void update_pos(float curr_temp, int expected_temp)
 {
+  int mult = 0;
+  if (abs(curr_temp-expected_temp) <= 3) mult = 0;
+  else if (abs(curr_temp-expected_temp) <= 10) mult = 1;
+  else if (abs(curr_temp-expected_temp) <= 20) mult = 5;
+  else if (abs(curr_temp-expected_temp) <= 30) mult = 8;
+
   if (expected_temp > curr_temp && motorPos >= high + 2)
   {
-    motorPos -= 2; // turns the motor counter clockwise, to hott.
+    motorPos -= 1*mult; // turns the motor counter clockwise, to hott.
     myservo.write(motorPos);
   }
-  if (expected_temp < curr_temp && motorPos <= low - 2)
+  else if (expected_temp < curr_temp && motorPos <= low - 2)
   {
-    motorPos += 2; // turns the motor counter clockwise, to .
+    motorPos += 1*mult; // turns the motor counter clockwise, to .
     myservo.write(motorPos);
   }
 }
@@ -434,10 +440,13 @@ bool withinThreshold(float curr, int exp)
 bool no_change(float *arr)
 {
   // int size = sizeof(arr)/sizeof(int);
-  for (int i = 0; i < 6; i++)
+  for (int i = 0; i < 7; i++)
   {
-      if (abs(arr[i] - arr[i+1]) > .5)
+    for (int j =0; j < 7; j++)
+    {
+      if (abs(arr[i] - arr[j]) > .5)
         return false;
+    }
   }
   return true;
 }
@@ -480,6 +489,7 @@ void loop()
       if (expected_temp <= 79.2) motorPos = 172;
       else if (expected_temp <= 87) motorPos = 102;
       else if (expected_temp <= 120) motorPos = 95;
+      myservo.write(motorPos);
       targetTempBtn.Animate();
       float temp_history[8] = {0};
       stopFlag = false;
@@ -497,14 +507,24 @@ void loop()
         {
           
           //updating the position waiting 3 seconds and storing the temperature change.
-          update_pos(curr_temp, expected_temp);
-          curr_temp = thermocouple.readFahrenheit(); 
-          store_change(temp_history, 8, curr_temp);
+          update_pos(curr_temp, expected_temp); 
+          for(int i = 0; i < 12; i++)
+          {
+            curr_temp = thermocouple.readFahrenheit(); 
+            store_change(temp_history, 8, curr_temp);
+            monitor(curr_temp, motorPos, expected_temp);
+            current_temp.text = curr_temp;
+            current_temp.Draw();
+            delay(250);
+          }
 
           // while the temperature changes, continue to listen.
           while(!no_change(temp_history) && !stopFlag){
             monitor(curr_temp, motorPos, expected_temp);
-            curr_temp = thermocouple.readFahrenheit(); 
+            curr_temp = thermocouple.readFahrenheit();
+            current_temp.text = curr_temp;
+            current_temp.Draw();
+
             store_change(temp_history, 8, curr_temp);
             delay(250);
           }
