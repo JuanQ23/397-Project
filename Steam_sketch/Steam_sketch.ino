@@ -463,12 +463,13 @@ void loop()
   // Serial.println(String(p.x)+","+String(p.y)+","+String(p.z));
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
-
   //Serial.println(TopLeftBtn.isPressed(&p));
   
   // Home Screen
   if (currentpage == HOME)
   {
+    monitor(curr_temp, motorPos, expected_temp);
+
     // Serial.println("low point: " + String(low));
     // Serial.println("High :" + String(high));
     if (millis() - timeLapsed > 2000)
@@ -487,8 +488,10 @@ void loop()
     else if (targetTempBtn.isPressed(&p))
     {
       if (expected_temp <= 79.2) motorPos = 172;
-      else if (expected_temp <= 87) motorPos = 102;
-      else if (expected_temp <= 120) motorPos = 95;
+      else if (expected_temp <= 87) motorPos = 130;
+      else if (expected_temp <= 102) motorPos = 105;
+      else if (expected_temp <= 123) motorPos = 94;
+      else if (expected_temp <= 130) motorPos = 91;
       myservo.write(motorPos);
       targetTempBtn.Animate();
       float temp_history[8] = {0};
@@ -582,9 +585,11 @@ void loop()
   // Calibration screen.
   else if (currentpage == CAL)
   {
-  // Serial.println(motorPos);
-  // Serial.println(thermocouple.readFahrenheit());
-  // delay(250);
+    curr_temp = thermocouple.readFahrenheit();
+    monitor(curr_temp, motorPos, expected_temp);
+    delay(250);
+
+
       //if BACK is isPressed, then go back to SETTINGS. 
     if (TopLeftBtn.isPressed(&p))
     {
