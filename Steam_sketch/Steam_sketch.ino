@@ -18,7 +18,6 @@
 #define LCD_CD A2
 #define LCD_WR A1
 #define LCD_RD A0
-#define LCD_RESET A4 // optional
 
 //LED paramaters
 #define LED_PIN 10
@@ -72,7 +71,7 @@ int k;
 //flags
 bool stopFlag = false;
 
-//Class that faccilates button creation, custimization, and animation.
+//Class that facilitates button creation, custimization, and animation.
 class buttons
 {
   private:
@@ -120,7 +119,7 @@ class buttons
       this->y2 = y2;
     }
 
-    // customize button fill and board color, text and text size.
+    // customize button fill, board color, text, and text size.
     void customize(int16_t _b_color, uint16_t _f_color, String _text, int size, int _textColor = WHITE)
     {
       b_color = _b_color;
@@ -129,6 +128,8 @@ class buttons
       textColor = _textColor;
       textSize = size;
     }
+
+    // method that draws button on the screen.
     void Draw()
     {
       if (this->shape == "RECTANGLE")
@@ -143,6 +144,8 @@ class buttons
         tft->drawTriangle(this->xcoor, this->ycoor, this->x1, this->y1, this->x2, this->y2 ,this->b_color);
       }
     }
+
+    // method that writes text inside of the button
     void setText(String text)
     {
       tft->setCursor(this->xcoor+this->offx, this->ycoor+this->offy);
@@ -152,11 +155,14 @@ class buttons
       tft->print(text);
     }
 
+    //offsets the position of the sets with respect to the button
     void setTextPosition(int offx, int offy)
     {
       this->offx = offx;
       this->offy = offy;
     }
+
+    // button animation. 
     void Animate()
     {
       tft->fillRoundRect(this->xcoor, this->ycoor, this->height, this->width, this->radius, this->b_color);
@@ -164,6 +170,7 @@ class buttons
       this->Draw();
     }
 
+    // setting the pressure window for the button.
     void setPressurePts(int xlow, int xhigh, int ylow, int yhigh)
     {
       this->TSPressurePt[0] = xlow;
@@ -171,11 +178,10 @@ class buttons
       this->TSPressurePt[2] = ylow;
       this->TSPressurePt[3] = yhigh;
     }
+
+    // check whether a button is pressed or not.
     bool isPressed(TSPoint *p)
     {
-        // Serial.println(String(p->x)+","+String(p->y)+","+String(p->z));
-        // Serial.println(String(this->TSPressurePt[0])+","+String(this->TSPressurePt[1])+","+String(this->TSPressurePt[2])+","+String(this->TSPressurePt[3]));
-
       if (p->z > MINPRESSURE && p->z < MAXPRESSURE)
         return  p->x > this->TSPressurePt[0] && p->x < this->TSPressurePt[1] && p->y > this->TSPressurePt[2] && p->y < this->TSPressurePt[3];
       else 
@@ -184,26 +190,25 @@ class buttons
 };
 
 
+
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300); //touch screen obj for detecting pressure points.
 Adafruit_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET); // tft obj for drawing on the screen.
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO); // temp sensor obj.
 Servo myservo; //servo object for controlling the servo motor.
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800); 
 
+// creating all of the button objects.
 buttons TopLeftBtn(&tft, 20, 20, 150, 40);
 buttons LeftArrowBtn(&tft, 220, 295, 160, 265, 220, 235);
 buttons RightArrowBtn(&tft, 260, 295, 320, 265, 260, 235);
-
 buttons homeBtn(&tft, 20, 50, 200, 60);
 buttons calibrationBtn(&tft, 20, 125, 200, 60);
 buttons LEDBtn(&tft, 20, 200, 200, 60);
 buttons unknown1(&tft, 260, 50, 200, 60);
 buttons unknown2(&tft, 260, 125, 200, 60);
 buttons unknown3(&tft, 260, 200, 200, 60);
-
 buttons setMinBtn(&tft, 20, 125, 200, 60);
 buttons setMaxBtn(&tft, 260, 125, 200, 60);
-
 buttons color1(&tft, 210, 80, 80, 60);
 buttons color2(&tft, 290, 80, 80, 60);
 buttons color3(&tft, 370, 80, 80, 60);
@@ -213,10 +218,8 @@ buttons color6(&tft, 370, 140, 80, 60);
 buttons color7(&tft, 210, 200, 80, 60);
 buttons color8(&tft, 290, 200, 80, 60);
 buttons color9(&tft, 370, 200, 80, 60);
-
 buttons targetTempBtn(&tft, 130, 120, 220, 60);
 buttons current_temp(&tft, 370, 20, 90, 40);
-// buttons TopRightBtn(&tft, 370, 20, "RECTANGLE", 40, 8);
 
 void setup(){
   // ISR set up.
@@ -274,7 +277,6 @@ void setup(){
   calibrationBtn.customize(WHITE, CYAN, "Calibration", 2, BLACK);
   calibrationBtn.setTextPosition(35, 25);
   calibrationBtn.setPressurePts(470, 580, 125, 460);
-  
   LEDBtn.customize(WHITE, CYAN, "LED Lights", 2, BLACK);
   LEDBtn.setTextPosition(40, 25);
   LEDBtn.setPressurePts(270, 380, 125, 460);
@@ -320,6 +322,7 @@ void setup(){
   drawHome();
 }
 
+// function that plots on serial.plotter.
 void monitor(float temp, float angle, int exp_temp)
 {
   Serial.print("Currtemp:");
@@ -332,6 +335,8 @@ void monitor(float temp, float angle, int exp_temp)
   Serial.println(exp_temp);
 
 }
+
+// drawing the home screen.
 void drawHome()
 {
   // Drawing home screen background
@@ -359,7 +364,7 @@ void drawSettings()
   tft.fillScreen(BLACK);
   tft.drawRoundRect(0, 0, 479, 319, 8, WHITE);
   
-  //draw settings.
+  //draw settings buttons.
   homeBtn.Draw();
   calibrationBtn.Draw();
   LEDBtn.Draw();
