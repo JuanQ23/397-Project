@@ -357,19 +357,20 @@ void drawHome()
   //draw current temperature on the top right of the screen.
 
 }
-
+// Draws the setting menu
 void drawSettings()
 {
   //Drawing home screen background
   tft.fillScreen(BLACK);
   tft.drawRoundRect(0, 0, 479, 319, 8, WHITE);
   
-  //draw settings buttons.
+  //draw setting buttons (Home, Calibration, LED Lights)
   homeBtn.Draw();
   calibrationBtn.Draw();
   LEDBtn.Draw();
 }
 
+// Draws the calibration menu
 void drawCalibration()
 {
   //drawing calibration page background.
@@ -380,24 +381,28 @@ void drawCalibration()
   TopLeftBtn.customize(WHITE, GREY, "Back", 3, BLACK);
   TopLeftBtn.setTextPosition(40, 10);
 
-  //drawing everything on the display.
-  TopLeftBtn.Draw();
-  LeftArrowBtn.Draw();
-  RightArrowBtn.Draw();       
-  setMinBtn.Draw();
-  setMaxBtn.Draw();    
+  //drawing everything on the display
+  TopLeftBtn.Draw(); // Back button
+  LeftArrowBtn.Draw(); // Increases motor position
+  RightArrowBtn.Draw(); // Decreases motor position
+  setMinBtn.Draw(); // Sets the motors min position
+  setMaxBtn.Draw(); // Sets the motors max position
 }
 
+
+// Draws the LED lights menu
 void drawLEDMenu()
 {
+  // Drawing the page background
   tft.fillScreen(BLACK);                 
   tft.drawRoundRect(0, 0, 479, 319, 8, WHITE);
 
+  // setting top left button as Back button.   
   TopLeftBtn.customize(WHITE, BLACK, "Back", 3, WHITE);
   TopLeftBtn.setTextPosition(40, 10);
   TopLeftBtn.Draw();
 
-  //drawing color buttons.
+  //drawing buttons for different colors.
   color1.Draw();
   color2.Draw();
   color3.Draw();
@@ -410,8 +415,11 @@ void drawLEDMenu()
   
 }
 
+// Updates the position of the motor based on certain parameters
 void update_pos(float curr_temp, int expected_temp)
 {
+  // Taking the difference in current temp and expected temp and
+  // moving the position of the motor
   int mult = 0;
   if (abs(curr_temp-expected_temp) <= 3) mult = 0;
   else if (abs(curr_temp-expected_temp) <= 10) mult = 1;
@@ -420,7 +428,7 @@ void update_pos(float curr_temp, int expected_temp)
 
   if (expected_temp > curr_temp && motorPos >= high + 2)
   {
-    motorPos -= 1*mult; // turns the motor counter clockwise, to hott.
+    motorPos -= 1*mult; // turns the motor counter clockwise, to hot.
     myservo.write(motorPos);
   }
   else if (expected_temp < curr_temp && motorPos <= low - 2)
@@ -430,20 +438,23 @@ void update_pos(float curr_temp, int expected_temp)
   }
 }
 
+// Storing temperature data into an array
 void store_change(float *arr, int n, float value)
 {
   memmove(&arr[1], &arr[0], (n - 1) * sizeof(float));
   arr[0] = value;
 }
+
+// Checks to see if the current temp is below or above
+// 3 degrees
 bool withinThreshold(float curr, int exp)
 {
-  // int size = sizeof(arr)/sizeof(int);
   return abs(exp - curr) <= 3;
-
 }
+
+// Checks the array for any change or difference of 0.5
 bool no_change(float *arr)
 {
-  // int size = sizeof(arr)/sizeof(int);
   for (int i = 0; i < 7; i++)
   {
     for (int j =0; j < 7; j++)
@@ -455,6 +466,7 @@ bool no_change(float *arr)
   return true;
 }
 
+// Rainbow LED
 void rainbow(int wait) {
   strip.rainbow(0);
   strip.show(); // Update strip with new contents
@@ -464,18 +476,12 @@ void rainbow(int wait) {
 void loop()
 {
   TSPoint p = ts.getPoint();
-  // Serial.println(String(p.x)+","+String(p.y)+","+String(p.z));
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
-  //Serial.println(TopLeftBtn.isPressed(&p));
   
   // Home Screen
   if (currentpage == HOME)
   {
-    // monitor(curr_temp, motorPos, expected_temp);
-
-    // Serial.println("low point: " + String(low));
-    // Serial.println("High :" + String(high));
     if (millis() - timeLapsed > 2000)
     {
       current_temp.text = thermocouple.readFahrenheit();
@@ -483,12 +489,15 @@ void loop()
       timeLapsed = millis();
     }
 
+    // Directs you to the setting page
     else if (TopLeftBtn.isPressed(&p))
     {
       TopLeftBtn.Animate();
       currentpage = SETTINGS;
       drawSettings();
     }
+
+    // Begins to find the target temperature
     else if (targetTempBtn.isPressed(&p))
     {
       if (expected_temp <= 79.2) motorPos = 172;
@@ -500,6 +509,8 @@ void loop()
       targetTempBtn.Animate();
       float temp_history[8] = {0};
       stopFlag = false;
+
+      // while the ISR is not triggered.
       while(!stopFlag)
       {
         
@@ -545,7 +556,6 @@ void loop()
         delay(250); // wait for the temp sensor.
       }
     }
-
     // else if left isPressed, then decrease expected temp.
     else if (LeftArrowBtn.isPressed(&p))
     {
