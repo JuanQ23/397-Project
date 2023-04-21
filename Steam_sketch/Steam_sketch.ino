@@ -590,11 +590,8 @@ void loop()
   else if (currentpage == CAL)
   {
     curr_temp = thermocouple.readFahrenheit();
-    // monitor(curr_temp, motorPos, expected_temp);
-    // delay(250);
 
-
-      //if BACK is isPressed, then go back to SETTINGS. 
+    //if BACK is isPressed, then go back to SETTINGS. 
     if (TopLeftBtn.isPressed(&p))
     {
       TopLeftBtn.Animate();
@@ -617,12 +614,14 @@ void loop()
       myservo.write(motorPos);
       delay(15);
     }
+    // if min btn is pressed, then set the min variable.
     else if(setMinBtn.isPressed(&p))
     {
       setMinBtn.Animate();
       low = motorPos;
       EEPROM[lowAddress] = low;
     }
+    // if max btn is pressed, then set the max vairable.
     else if (setMaxBtn.isPressed(&p))
     {
       setMaxBtn.Animate();
@@ -630,7 +629,7 @@ void loop()
       EEPROM[highAddress] = high;
     }
   }
-  // LED screen.
+  // LED Page. this page is used to set the LED lights color.
   else if (currentpage == LED)
   {
     if (TopLeftBtn.isPressed(&p))
@@ -714,6 +713,7 @@ void loop()
   }
 }
 
+// ISR that stops the shower and sets the respective flag.
 void emergencyStop(){
     stopFlag = true;
     myservo.write(low);
