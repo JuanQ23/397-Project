@@ -1,17 +1,16 @@
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_TFTLCD.h> // Hardware-specific library
-#include <TouchScreen.h>
-#include "max6675.h"
+#include <TouchScreen.h> //resistive touch screen library
+#include "max6675.h" //temperature amplifier library
 #include <Servo.h>
-//#include <TimeLib.h>
 #include <EEPROM.h>
-#include <Adafruit_NeoPixel.h>
+#include <Adafruit_NeoPixel.h> // LED lights library
 
 
-//touch screen params
+//touch screen paramsas
 #define YP A3  // must be an analog pin, use "An" notation!
 #define XM A2  // must be an analog pin, use "An" notation!
-#define YM 23   // can be a digital pin
+#define YM 23   // can be a digital pinffff
 #define XP 22   // can be a digital pin
 
 // display parameters.
@@ -21,6 +20,7 @@
 #define LCD_RD A0
 #define LCD_RESET A4 // optional
 
+//LED paramaters
 #define LED_PIN 10
 #define LED_COUNT 30
 
@@ -53,9 +53,13 @@
 #define lowAddress 0
 #define highAddress 4
 
+//Pin numbers for the temp sensor. It the uses SPI protocal.
+int thermoDO = 50; // data out pin (Master In Slave Out -- MISO) 
+int thermoCS = 53; // Chip select pin 
+int thermoCLK = 52; // Serial clock pin 
 
-//
-int currentpage = 0; // - Home Screen, 1-settings, 2-calibration
+// Global variables
+int currentpage = 0;
 float curr_temp;
 unsigned long timeLapsed;
 int expected_temp;
@@ -64,14 +68,11 @@ int high;
 int motorPos = 90; 
 int k;
 
-//Pin numbers for the temp sensor. It the uses SPI protocal.
-int thermoDO = 50; // data out pin (Master In Slave Out -- MISO) 
-int thermoCS = 53; // Chip select pin 
-int thermoCLK = 52; // Serial clock pin 
 
 //flags
 bool stopFlag = false;
 
+//Class that faccilates button creation, custimization, and animation.
 class buttons
 {
   private:
@@ -82,10 +83,8 @@ class buttons
     String shape; // "Triangle" or "Rectangle"
     int radius=8;
     int TSPressurePt[4]; // [xlow xhigh ylow yhigh]
-
     int x1, x2;
     int y1, y2;
-
     int offx = 10; 
     int offy = 10;
 
@@ -121,7 +120,7 @@ class buttons
       this->y2 = y2;
     }
 
-
+    // customize button fill and board color, text and text size.
     void customize(int16_t _b_color, uint16_t _f_color, String _text, int size, int _textColor = WHITE)
     {
       b_color = _b_color;
@@ -468,7 +467,7 @@ void loop()
   // Home Screen
   if (currentpage == HOME)
   {
-    monitor(curr_temp, motorPos, expected_temp);
+    // monitor(curr_temp, motorPos, expected_temp);
 
     // Serial.println("low point: " + String(low));
     // Serial.println("High :" + String(high));
@@ -586,8 +585,8 @@ void loop()
   else if (currentpage == CAL)
   {
     curr_temp = thermocouple.readFahrenheit();
-    monitor(curr_temp, motorPos, expected_temp);
-    delay(250);
+    // monitor(curr_temp, motorPos, expected_temp);
+    // delay(250);
 
 
       //if BACK is isPressed, then go back to SETTINGS. 
